@@ -18,10 +18,11 @@ class Book(BaseModel):
     price = models.IntegerField(default=0)
     tags = models.ManyToManyField('Tag', name='tags', related_name='books')
     category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='books')
-    image = models.ImageField(
-        null=True,
-        upload_to=lambda instance, filename: f'main-images/{instance.id}.{filename.split(".")[-1]}'
-    )
+
+    def upload_location(self, filename):
+        base, extension = filename.split('.')
+        return f'main-images/{self.id}.{extension}'
+    image = models.ImageField(null=True, upload_to=upload_location)
 
     def __str__(self):
         return self.name
