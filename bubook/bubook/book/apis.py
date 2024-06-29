@@ -1,3 +1,86 @@
-from django.shortcuts import render
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
-# Create your views here.
+from bubook.book.filters import CategoryFilter
+from bubook.book.models import Category
+from bubook.book.services import create_category
+
+
+class CategoryApi(APIView):
+    def get_permissions(self):
+        if self.request and self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return []
+
+    def get_authenticators(self):
+        if self.request and self.request.method == 'POST':
+            return [JWTAuthentication(),]
+        super().get_authenticators()
+        return []
+
+    class FilterSerializer(serializers.Serializer):
+        parent = serializers.CharField(max_length=65, required=False)
+        name = serializers.CharField(max_length=65, required=False)
+
+    class OutPutCategorySerializer(serializers.ModelSerializer):
+        parent = serializers.SlugField(source='parent.name', read_only=True)
+
+        class Meta:
+            model = Category
+            fields = ('name', 'parent')
+
+    class InputCategorySerializer(serializers.Serializer):
+        parent = serializers.CharField(max_length=64, required=False)
+        name = serializers.CharField(max_length=64)
+
+        def validate_parent(self, parent):
+            if not Category.objects.filter(name=parent).exists():
+                raise serializers.ValidationError('this parent category does not exist')
+            return parent
+
+        def validate_name(self, name):
+            if Category.objects.filter(name=name).exists():
+                raise serializers.ValidationError('this category already exist')
+            return name
+
+        def create(self, validated_data):
+            try:
+                return create_category(validated_data.get('name'), validated_data.get('parent'))
+            except ValueError as ex:
+                raise serializers.ValidationError(str(ex))
+
+    @extend_schema(
+        summary='Retrieve a list of categories',
+        description='This endpoint returns a list of categories with optional filtering based on the name and parent '
+                    'fields.',
+        parameters=[FilterSerializer, ],
+        responses=OutPutCategorySerializer(many=True),
+        tags=['category', ],
+    )
+    def get(self, request):
+        categories = CategoryFilter(data=request.GET, queryset=Category.objects.all()).qs
+        return Response(self.OutPutCategorySerializer(categories, many=True, context={"request": request}).data)
+
+    @extend_schema(
+        summary='Create a new category',
+        description='This endpoint allows for the creation of a new category.'
+                    'It expects a payload with the category details and saves it to the database.',
+        request=InputCategorySerializer,
+        responses=InputCategorySerializer,
+        tags=['category', ],
+    )
+    def post(self, request):
+        category_serializer = self.InputCategorySerializer(data=request.data)
+        category_serializer.is_valid(raise_exception=True)
+        try:
+            category_serializer.save()
+        except Exception as ex:
+            return Response(
+                f"Database Error {ex}",
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(category_serializer.data)
