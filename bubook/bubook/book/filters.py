@@ -8,3 +8,7 @@ class CategoryFilter(FilterSet):
 
     def filter_parent(self, queryset, name, value):
         return queryset.filter(parent__name=value)
+
+
+class TagFilter(FilterSet):
+    name = django_filters.CharFilter(lookup_expr='icontains')

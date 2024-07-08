@@ -5,9 +5,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from bubook.book.filters import CategoryFilter
-from bubook.book.models import Category
-from bubook.book.services import create_category
+from bubook.book.filters import CategoryFilter, TagFilter
+from bubook.book.models import Category, Tag
+from bubook.book.services import create_category, create_tag
 
 
 class CategoryApi(APIView):
@@ -18,7 +18,7 @@ class CategoryApi(APIView):
 
     def get_authenticators(self):
         if self.request and self.request.method == 'POST':
-            return [JWTAuthentication(),]
+            return [JWTAuthentication(), ]
         super().get_authenticators()
         return []
 
@@ -84,3 +84,68 @@ class CategoryApi(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         return Response(category_serializer.data)
+
+
+class TagApi(APIView):
+    def get_permissions(self):
+        if self.request and self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return []
+
+    def get_authenticators(self):
+        if self.request and self.request.method == 'POST':
+            return [JWTAuthentication(), ]
+        super().get_authenticators()
+        return []
+
+    class FilterSerializer(serializers.Serializer):
+        name = serializers.CharField(max_length=64, required=False)
+
+    class OutPutTagSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = Tag
+            fields = ('name', )
+
+    class InputTagSerializer(serializers.Serializer):
+        name = serializers.CharField(max_length=64)
+
+        def validate_name(self, name):
+            if Tag.objects.filter(name=name).exists():
+                raise serializers.ValidationError('this tag already exist')
+            return name
+
+        def create(self, validated_data):
+            try:
+                return create_tag(validated_data.get('name'))
+            except ValueError as ex:
+                raise serializers.ValidationError(str(ex))
+
+    @extend_schema(
+        summary='Retrieve a list of tags',
+        description='This endpoint returns a list of tags with optional filtering based on the name.',
+        parameters=[FilterSerializer, ],
+        responses=OutPutTagSerializer(many=True),
+        tags=['tag', ],
+    )
+    def get(self, request):
+        tags = TagFilter(data=request.GET, queryset=Tag.objects.all()).qs
+        return Response(self.OutPutTagSerializer(tags, many=True, context={"request": request}).data)
+
+    @extend_schema(
+        summary='Create a new tag',
+        description='This endpoint allows for the creation of a new tag.',
+        request=InputTagSerializer,
+        responses=InputTagSerializer,
+        tags=['tag', ],
+    )
+    def post(self, request):
+        tag_serializer = self.InputTagSerializer(data=request.data)
+        tag_serializer.is_valid(raise_exception=True)
+        try:
+            tag_serializer.save()
+        except Exception as ex:
+            return Response(
+                f"Database Error {ex}",
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(tag_serializer.data, status=status.HTTP_201_CREATED)
