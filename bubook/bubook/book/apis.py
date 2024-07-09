@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -8,6 +9,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from bubook.book.filters import CategoryFilter, TagFilter
 from bubook.book.models import Category, Tag
 from bubook.book.services import create_category, create_tag
+from config.django.base import CACHE_TTL
 
 
 class CategoryApi(APIView):
@@ -104,7 +106,7 @@ class TagApi(APIView):
     class OutPutTagSerializer(serializers.ModelSerializer):
         class Meta:
             model = Tag
-            fields = ('name', )
+            fields = ('name',)
 
     class InputTagSerializer(serializers.Serializer):
         name = serializers.CharField(max_length=64)
@@ -128,8 +130,17 @@ class TagApi(APIView):
         tags=['tag', ],
     )
     def get(self, request):
-        tags = TagFilter(data=request.GET, queryset=Tag.objects.all()).qs
-        return Response(self.OutPutTagSerializer(tags, many=True, context={"request": request}).data)
+        name_filter = self.request.GET.get('name', '')
+        cache_key = f'all_tags_name_{name_filter}'
+        cache_result = cache.get(cache_key)
+        if cache_result:
+            return Response(cache_result, status=status.HTTP_200_OK)
+        else:
+            all_tags = Tag.objects.all()
+            filtered_tags = TagFilter(data=request.GET, queryset=all_tags).qs
+            serialized_tags = self.OutPutTagSerializer(filtered_tags, many=True, context={"request": request}).data
+            cache.set(cache_key, serialized_tags, CACHE_TTL)
+            return Response(serialized_tags, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary='Create a new tag',
