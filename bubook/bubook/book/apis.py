@@ -64,8 +64,19 @@ class CategoryApi(APIView):
         tags=['category', ],
     )
     def get(self, request):
-        categories = CategoryFilter(data=request.GET, queryset=Category.objects.all()).qs
-        return Response(self.OutPutCategorySerializer(categories, many=True, context={"request": request}).data)
+        name_filter = self.request.GET.get('name', '')
+        parent_filter = self.request.GET.get('parent', '')
+        cache_key = f'all_categories_name_{name_filter}_parent_{parent_filter}'
+        cache_result = cache.get(cache_key)
+        if cache_result:
+            return Response(cache_result, status=status.HTTP_200_OK)
+        else:
+            all_categories = Category.objects.all()
+            filtered_categories = CategoryFilter(data=request.GET, queryset=all_categories).qs
+            serialized_categories = self.OutPutCategorySerializer(filtered_categories, many=True,
+                                                                  context={"request": request}).data
+            cache.set(cache_key, serialized_categories, CACHE_TTL)
+            return Response(serialized_categories, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary='Create a new category',
