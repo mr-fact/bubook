@@ -18,6 +18,7 @@ class Book(BaseModel):
     price = models.IntegerField(default=0)
     tags = models.ManyToManyField('Tag', name='tags', related_name='books')
     category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='books')
+    published = models.BooleanField(default=False)
 
     def upload_location(self, filename):
         base, extension = filename.split('.')

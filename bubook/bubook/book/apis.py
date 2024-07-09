@@ -199,7 +199,7 @@ class BookListApi(APIView):
         if cache_result:
             return Response(cache_result, status=status.HTTP_200_OK)
         else:
-            all_books = Book.objects.all()
+            all_books = Book.objects.filter(published=True)
             filtered_books = BookFilter(data=request.GET, queryset=all_books).qs
             serialized_books = self.OutPutBookSerializer(filtered_books, many=True, context={"request": request}).data
             cache.set(cache_key, serialized_books, CACHE_TTL)
