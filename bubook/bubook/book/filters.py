@@ -12,3 +12,7 @@ class CategoryFilter(FilterSet):
 
 class TagFilter(FilterSet):
     name = django_filters.CharFilter(lookup_expr='icontains')
+
+
+class BookFilter(FilterSet):
+    name = django_filters.CharFilter(lookup_expr='icontains')

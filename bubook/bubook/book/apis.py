@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from bubook.book.filters import CategoryFilter, TagFilter
-from bubook.book.models import Category, Tag
+from bubook.book.filters import CategoryFilter, TagFilter, BookFilter
+from bubook.book.models import Category, Tag, Book
 from bubook.book.services import create_category, create_tag
 from config.django.base import CACHE_TTL
 
@@ -171,3 +171,36 @@ class TagApi(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         return Response(tag_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class BookListApi(APIView):
+    class FilterSerializer(serializers.Serializer):
+        name = serializers.CharField(max_length=64, required=False)
+
+    class OutPutBookSerializer(serializers.ModelSerializer):
+        category = serializers.SlugRelatedField(slug_field='name', read_only=True)
+        tags = serializers.ListSerializer(child=serializers.SlugRelatedField(slug_field='name', read_only=True))
+
+        class Meta:
+            model = Book
+            fields = ('name', 'price', 'tags', 'category')
+
+    @extend_schema(
+        summary='Retrieve a list of books',
+        description='This endpoint returns a list of books with optional filtering based on the name.',
+        parameters=[FilterSerializer, ],
+        responses=OutPutBookSerializer(many=True),
+        tags=['book', ],
+    )
+    def get(self, request):
+        name_filter = self.request.GET.get('name', '')
+        cache_key = f'all_books_name_{name_filter}'
+        cache_result = cache.get(cache_key)
+        if cache_result:
+            return Response(cache_result, status=status.HTTP_200_OK)
+        else:
+            all_books = Book.objects.all()
+            filtered_books = BookFilter(data=request.GET, queryset=all_books).qs
+            serialized_books = self.OutPutBookSerializer(filtered_books, many=True, context={"request": request}).data
+            cache.set(cache_key, serialized_books, CACHE_TTL)
+            return Response(serialized_books, status=status.HTTP_200_OK)
