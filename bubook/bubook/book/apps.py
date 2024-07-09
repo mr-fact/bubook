@@ -6,4 +6,4 @@ class BookConfig(AppConfig):
     name = 'bubook.book'
 
     def ready(self):
-        pass
+        import bubook.book.signals
