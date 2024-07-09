@@ -14,6 +14,7 @@ class Category(BaseModel):
 
 
 class Book(BaseModel):
+    slug = models.SlugField(max_length=64, name='slug', unique=True)
     name = models.CharField(max_length=64, name='name')
     price = models.IntegerField(default=0)
     tags = models.ManyToManyField('Tag', name='tags', related_name='books')
