@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from django.utils.text import slugify
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -8,7 +9,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from bubook.book.filters import CategoryFilter, TagFilter, BookFilter
 from bubook.book.models import Category, Tag, Book
-from bubook.book.services import create_category, create_tag
+from bubook.book.services import create_category, create_tag, create_book
 from config.django.base import CACHE_TTL
 
 
@@ -173,7 +174,18 @@ class TagApi(APIView):
         return Response(tag_serializer.data, status=status.HTTP_201_CREATED)
 
 
-class BookListApi(APIView):
+class BookApi(APIView):
+    def get_permissions(self):
+        if self.request and self.request.method == 'POST':
+            return [IsAuthenticated()]
+        return []
+
+    def get_authenticators(self):
+        if self.request and self.request.method == 'POST':
+            return [JWTAuthentication(), ]
+        super().get_authenticators()
+        return []
+
     class FilterSerializer(serializers.Serializer):
         name = serializers.CharField(max_length=64, required=False)
 
@@ -184,6 +196,25 @@ class BookListApi(APIView):
         class Meta:
             model = Book
             fields = ('name', 'price', 'tags', 'category')
+
+    class InputBookSerializer(serializers.Serializer):
+        name = serializers.CharField(max_length=64)
+        price = serializers.IntegerField()
+        tags = serializers.ListSerializer(child=serializers.CharField(max_length=54))
+        category = serializers.SlugRelatedField(slug_field='name', queryset=Category.objects.all())
+
+        def validate(self, attrs):
+            print(slugify(attrs.get('name', ''), allow_unicode=True))
+            if Book.objects.filter(slug=slugify(attrs.get('name', ''), allow_unicode=True)).exists():
+                raise serializers.ValidationError('this book already exist')
+            return attrs
+
+        def create(self, validated_data):
+            try:
+                return create_book(validated_data.get('name'), validated_data.get('price'),
+                                   validated_data.get('category'), validated_data.get('tags'))
+            except ValueError as ex:
+                raise serializers.ValidationError(str(ex))
 
     @extend_schema(
         summary='Retrieve a list of books',
@@ -204,3 +235,22 @@ class BookListApi(APIView):
             serialized_books = self.OutPutBookSerializer(filtered_books, many=True, context={"request": request}).data
             cache.set(cache_key, serialized_books, CACHE_TTL)
             return Response(serialized_books, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary='Create a new book',
+        description='This endpoint allows for the creation of a new book.',
+        request=InputBookSerializer,
+        responses=InputBookSerializer,
+        tags=['book', ],
+    )
+    def post(self, request):
+        book_serializer = self.InputBookSerializer(data=request.data)
+        book_serializer.is_valid(raise_exception=True)
+        try:
+            book_serializer.save()
+        except Exception as ex:
+            return Response(
+                f"Database Error {ex}",
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(book_serializer.data, status=status.HTTP_201_CREATED)
