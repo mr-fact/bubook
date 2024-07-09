@@ -22,6 +22,9 @@ def update_category_cache(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Book)
 def update_category_cache(sender, instance, **kwargs):
-    if kwargs.get('created', False):
-        instance.slug = slugify(instance.name)
+    cache_keys = cache.keys('all_books_*')
+    for key in cache_keys:
+        cache.delete(key)
+    if kwargs.get('created', False) and not instance.slug:
+        instance.slug = slugify(instance.name, allow_unicode=True)
         instance.save()
