@@ -1,3 +1,4 @@
+from django import shortcuts
 from django.core.cache import cache
 from django.utils.text import slugify
 from drf_spectacular.utils import extend_schema
@@ -262,3 +263,24 @@ class BookApi(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         return Response(book_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class BookDetailApi(APIView):
+    class OutPutBookDetailSerializer(serializers.ModelSerializer):
+        category = serializers.SlugRelatedField(slug_field='name', read_only=True)
+        tags = serializers.ListSerializer(child=serializers.SlugRelatedField(slug_field='name', read_only=True))
+
+        class Meta:
+            model = Book
+            fields = ('slug', 'name', 'price', 'category', 'tags')
+
+    @extend_schema(
+        summary='Retrieve a single book',
+        description='This endpoint returns a single book.',
+        responses=OutPutBookDetailSerializer,
+        tags=['book', ],
+    )
+    def get(self, request, book_slug):
+        book = shortcuts.get_object_or_404(Book, slug=book_slug)
+        serialized_book = self.OutPutBookDetailSerializer(book).data
+        return Response(serialized_book, status=status.HTTP_200_OK)
