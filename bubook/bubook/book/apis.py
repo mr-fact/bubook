@@ -195,7 +195,7 @@ class BookApi(APIView):
 
         class Meta:
             model = Book
-            fields = ('name', 'price', 'tags', 'category')
+            fields = ('slug', 'name', 'price', 'tags', 'category')
 
     class InputBookSerializer(serializers.Serializer):
         name = serializers.CharField(max_length=64)
