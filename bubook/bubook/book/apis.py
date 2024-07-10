@@ -188,6 +188,10 @@ class BookApi(APIView):
 
     class FilterSerializer(serializers.Serializer):
         name = serializers.CharField(max_length=64, required=False)
+        category = serializers.CharField(max_length=64, required=False)
+        tag = serializers.CharField(max_length=64, required=False)
+        price_min = serializers.IntegerField(required=False)
+        price_max = serializers.IntegerField(required=False)
 
     class OutPutBookSerializer(serializers.ModelSerializer):
         category = serializers.SlugRelatedField(slug_field='name', read_only=True)
@@ -204,7 +208,6 @@ class BookApi(APIView):
         category = serializers.SlugRelatedField(slug_field='name', queryset=Category.objects.all())
 
         def validate(self, attrs):
-            print(slugify(attrs.get('name', ''), allow_unicode=True))
             if Book.objects.filter(slug=slugify(attrs.get('name', ''), allow_unicode=True)).exists():
                 raise serializers.ValidationError('this book already exist')
             return attrs
@@ -225,7 +228,12 @@ class BookApi(APIView):
     )
     def get(self, request):
         name_filter = self.request.GET.get('name', '')
-        cache_key = f'all_books_name_{name_filter}'
+        category_filter = self.request.GET.get('category', '')
+        tag_filter = self.request.GET.get('tag', '')
+        price_min_filter = self.request.GET.get('price_min', '')
+        price_max_filter = self.request.GET.get('price_max', '')
+        print(price_min_filter, price_max_filter)
+        cache_key = f'all_books_{name_filter}_{category_filter}_{tag_filter}_{price_min_filter}_{price_max_filter}'
         cache_result = cache.get(cache_key)
         if cache_result:
             return Response(cache_result, status=status.HTTP_200_OK)
