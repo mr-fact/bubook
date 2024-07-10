@@ -3,7 +3,7 @@ from django.core.cache import cache
 from django.utils.text import slugify
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -284,3 +284,30 @@ class BookDetailApi(APIView):
         book = shortcuts.get_object_or_404(Book, slug=book_slug)
         serialized_book = self.OutPutBookDetailSerializer(book).data
         return Response(serialized_book, status=status.HTTP_200_OK)
+
+
+class BookPublishApi(APIView):
+    permission_classes = (IsAdminUser,)
+    authentication_classes = (JWTAuthentication,)
+
+    @extend_schema(
+        summary='publish a book',
+        description='This endpoint set books to published mode.',
+        tags=['book admin', ],
+    )
+    def post(self, request, book_slug):
+        book = shortcuts.get_object_or_404(Book, slug=book_slug)
+        book.published = True
+        book.save()
+        return Response(status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary='unpublish a book',
+        description='This endpoint set books to unpublished mode.',
+        tags=['book admin', ],
+    )
+    def delete(self, request, book_slug):
+        book = shortcuts.get_object_or_404(Book, slug=book_slug)
+        book.published = False
+        book.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
