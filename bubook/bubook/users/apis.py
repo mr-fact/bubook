@@ -1,17 +1,15 @@
+from django.core.validators import MinLengthValidator
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from django.core.validators import MinLengthValidator
-from .validators import number_validator, special_char_validator, letter_validator, phone_validator
-from bubook.users.models import BaseUser, Profile
 from bubook.api.mixins import ApiAuthMixin
-from bubook.users.selectors import get_profile
-from bubook.users.services import register
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
-
-from drf_spectacular.utils import extend_schema
+from bubook.users.models import BaseUser
+from bubook.users.services import register, create_new_otp, validate_otp
+from .validators import number_validator, special_char_validator, letter_validator, phone_validator, otp_code_validator
 
 
 class UserApi(ApiAuthMixin, APIView):
@@ -86,3 +84,61 @@ class RegisterApi(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         return Response(self.OutPutRegisterSerializer(user, context={"request": request}).data)
+
+
+class SendOtpApi(APIView):
+    class InputPhoneSerializer(serializers.Serializer):
+        phone = serializers.CharField(max_length=15, validators=[phone_validator])
+
+        def validate(self, attrs):
+            if not BaseUser.objects.filter(phone=attrs["phone"]).exists():
+                raise serializers.ValidationError("phone not found")
+            return attrs
+
+        def create(self, validated_data):
+            create_new_otp(phone=validated_data.get("phone"))
+            return validated_data
+
+    @extend_schema(summary='send otp code', tags=['user'], request=InputPhoneSerializer())
+    def post(self, request):
+        serializer = self.InputPhoneSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save()
+        except Exception as ex:
+            return Response({'detail': str(ex)}, status=status.HTTP_403_FORBIDDEN)
+        return Response(status=status.HTTP_200_OK)
+
+
+class PasswordRecoveryApi(APIView):
+    class InputOtpSerializer(serializers.Serializer):
+        phone = serializers.CharField(max_length=15, validators=[phone_validator])
+        otp_code = serializers.CharField(max_length=15, validators=[otp_code_validator])
+        new_password = serializers.CharField(
+            validators=[number_validator, letter_validator, special_char_validator, MinLengthValidator(limit_value=10)]
+        )
+        confirm_password = serializers.CharField(max_length=128)
+
+        def validate(self, attrs):
+            if attrs.get('new_password') != attrs.get('confirm_password'):
+                raise serializers.ValidationError(
+                    {'confirm_password': 'new_password and confirm_password do not match'})
+            if not BaseUser.objects.filter(phone=attrs["phone"]).exists():
+                raise serializers.ValidationError({'phone': 'this phone not found'})
+            result, message = validate_otp(phone=attrs.get('phone'), code=attrs.get('otp_code'))
+            if not result:
+                raise serializers.ValidationError({'otp_code': message})
+            return attrs
+
+        def create(self, validated_data):
+            user = BaseUser.objects.get(phone=validated_data.get('phone'))
+            user.set_password(validated_data.get('new_password'))
+            user.save()
+            return user
+
+    @extend_schema(summary='validate otp code and recovery password', tags=['user'], request=InputOtpSerializer())
+    def post(self, request):
+        serializer = self.InputOtpSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_200_OK)
