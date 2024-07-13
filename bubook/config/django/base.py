@@ -18,6 +18,7 @@ LOCAL_APPS = [
     'bubook.users.apps.UsersConfig',
     'bubook.authentication.apps.AuthenticationConfig',
     'bubook.book.apps.BookConfig',
+    'bubook.task.apps.TaskConfig',
 ]
 
 THIRD_PARTY_APPS = [
