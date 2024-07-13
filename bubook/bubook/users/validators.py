@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 
 import re
 
+from config.otp import OTP_LENGTH
+
 
 def number_validator(password):
     regex = re.compile('[0-9]')
@@ -37,4 +39,12 @@ def phone_validator(phone_number):
         raise ValidationError(
             _("Phone number must be in the format +989*********"),
             code="invalid_phone_number"
+        )
+
+
+def otp_code_validator(otp_code):
+    regex = re.compile(r'^\d{4}$')
+    if not regex.match(otp_code):
+        raise ValidationError(
+            _("otp code must be in the format 1111")
         )
