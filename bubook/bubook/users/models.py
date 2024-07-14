@@ -77,3 +77,11 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.user} >> {self.bio}"
+
+
+class OtpRecord(BaseModel):
+    phone = models.CharField(max_length=15)
+    code = models.CharField(max_length=5)
+
+    def __str__(self):
+        return f'[{self.created_at}] {self.phone}-> {self.code}'
