@@ -1,6 +1,6 @@
 from django.core.cache import cache
 from django.db import transaction
-from django.utils.datetime_safe import datetime
+from django.utils.timezone import now
 
 from config.otp import OTP_LENGTH, OTP_EX_TIME, OTP_EX_CACHE
 from .models import BaseUser, Profile
@@ -30,7 +30,7 @@ def create_new_otp(*, phone: str) -> None:
     else:
         new_otp = random_int(OTP_LENGTH)
         cache.set(f'valid_otp_{phone}', f'{new_otp}:{0}', OTP_EX_TIME)
-        cache.set(f'all_otp_{phone}_{new_otp}', datetime.now(), OTP_EX_CACHE)
+        cache.set(f'all_otp_{phone}_{new_otp}', now(), OTP_EX_CACHE)
         send_otp_message.delay(phone=phone, code=new_otp)
 
 
