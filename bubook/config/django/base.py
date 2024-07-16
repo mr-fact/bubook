@@ -1,4 +1,6 @@
 import os
+
+from mongoengine import connect as mongo_connect
 from config.env import env, BASE_DIR
 
 env.read_env(os.path.join(BASE_DIR, ".env"))
@@ -19,6 +21,7 @@ LOCAL_APPS = [
     'bubook.authentication.apps.AuthenticationConfig',
     'bubook.book.apps.BookConfig',
     'bubook.task.apps.TaskConfig',
+    'bubook.post.apps.PostConfig',
 ]
 
 THIRD_PARTY_APPS = [
@@ -82,6 +85,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': env.db('DATABASE_URL', default='psql://root:r1o2o3t4@127.0.0.1:5432/bubook'),
 }
+mongo_connect(
+    db='bubook',
+    host='localhost',
+    port=27017,
+)
 DATABASES['default']['ATOMIC_REQUESTS'] = True
 
 if os.environ.get('GITHUB_WORKFLOW'):
