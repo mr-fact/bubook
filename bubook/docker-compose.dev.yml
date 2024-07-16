@@ -15,6 +15,14 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data/
 
+  mongodb:
+    image: mongo
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
   pgadmin:
     container_name: pgadmin4_container
     image: dpage/pgadmin4
@@ -48,6 +56,6 @@ services:
 
 
 volumes:
-    postgres-data:
-    redis-data:
-
+  postgres-data:
+  redis-data:
+  mongo-data:
