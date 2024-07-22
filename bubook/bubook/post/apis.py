@@ -6,7 +6,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from bubook.book.models import Book
-from bubook.post.models import Post
+from bubook.post.selectors import get_published_posts
+from bubook.post.services import create_new_post
 from bubook.users.models import BaseUser
 from bubook.utils.serializers import PkSlugRelatedField
 
@@ -33,7 +34,7 @@ class PostApi(APIView):
         tags = serializers.ListSerializer(child=serializers.CharField(max_length=255))
 
         def create(self, validated_data):
-            return Post.objects.create(**validated_data)
+            return create_new_post(**validated_data)
 
     class PostOutputSerializer(serializers.Serializer):
         id = serializers.CharField(max_length=255)
@@ -70,5 +71,5 @@ class PostApi(APIView):
         tags=['post', ],
     )
     def get(self, request):
-        serializer = self.PostOutputSerializer(instance=Post.objects.filter(published=True), many=True)
+        serializer = self.PostOutputSerializer(instance=get_published_posts(), many=True)
         return Response(status=status.HTTP_200_OK, data=serializer.data)
