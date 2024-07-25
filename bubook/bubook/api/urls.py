@@ -6,4 +6,5 @@ urlpatterns = [
     path('authentication/', include(('bubook.authentication.urls', 'authentication'))),
     path('book/', include(('bubook.book.urls', 'book'))),
     path('post/', include(('bubook.post.urls', 'post'))),
+    path('report/', include(('bubook.report.urls', 'report'))),
 ]

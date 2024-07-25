@@ -22,6 +22,7 @@ LOCAL_APPS = [
     'bubook.book.apps.BookConfig',
     'bubook.task.apps.TaskConfig',
     'bubook.post.apps.PostConfig',
+    'bubook.report.apps.ReportConfig',
 ]
 
 THIRD_PARTY_APPS = [
